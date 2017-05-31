@@ -3,7 +3,7 @@
 */
 
 /* jshint esversion:6 */
-/* globals jQuery, spa */
+/* globals jQuery, window, spa */
 
 spa.shell = (function ($) {
     
@@ -15,6 +15,13 @@ spa.shell = (function ($) {
     
         // static configuration values
         configMap = {
+            
+            // map used by uriAnchor for validation
+            anchor_schema_map: {
+                chat: { open : true, closed: true }
+            },
+            
+            // html template
             main_html: `
                 <div class="spa-shell-head">
                     <div class="spa-shell-head-logo"></div>
@@ -43,6 +50,7 @@ spa.shell = (function ($) {
         // dynamic information shared across the module
         stateMap = {
             $container        : null,
+            anchor_map        : {},    // store for current anchor values
             is_chat_retracted : true   // set by toggleChat method
         },
         
@@ -52,8 +60,59 @@ spa.shell = (function ($) {
     
     /* ========================== UTILITY METHODS ========================== */
     
+    // return copy of stored anchor map to minimize overhead
+    function copyAnchorMap() {
+        return $.extend( true, {}, stateMap.anchor_map );
+    }
+    
         
     /* ============================ DOM METHODS ============================ */
+    
+    /* Changes part of the URI anchor component
+     * @params    [object]   arg_map    [map describing what part of URI anchor to change]
+     * @returns   [boolean]             [true if target URI Anchor part was updated]
+    */
+    function changeAnchorPart(arg_map) {
+
+        var anchor_map_revise = copyAnchorMap(),
+            bool_return       = true,
+            key_name,
+            key_name_dep;
+        
+        // merge changes into anchor map
+        KEYVAL:
+        for ( key_name in arg_map ) {
+            if (arg_map.hasOwnProperty( key_name )) {
+                
+                // skip dependent keys during iteration
+                if (key_name.indexOf('_') === 0 ) { continue KEYVAL; }
+                
+                // update independent key values
+                anchor_map_revise[key_name] = arg_map[key_name];
+                
+                // update matching dependent key
+                key_name_dep = '_' + key_name;
+                if ( arg_map[key_name_dep] ) {
+                    anchor_map_revise[key_name_dep] = arg_map[key_name_dep];
+                } else {
+                    delete anchor_map_revise[key_name_dep];
+                    delete anchor_map_revise['_s' + key_name_dep];
+                }
+            }
+        }
+        
+        // attempt to update URI, revert on fail
+        try {
+            $.uriAnchor.setAnchor( anchor_map_revise );
+        } catch (error) {
+            // replace URI with existing state
+            $.uriAnchor.setAnchor( stateMap.anchor_map, null, true );
+            bool_return = false;
+        }
+        
+        return bool_return;
+        
+    }
     
     /* cache jQuery collections to reduce document traversals & improve perf
     */
@@ -125,16 +184,54 @@ spa.shell = (function ($) {
     
     /* ========================== EVENT HANDLERS =========================== */
     
-    // click event handler to call toggleChat
+    // handle URI anchor changes
+    function onHashChange(event) {
+        
+        var anchor_map_previous = copyAnchorMap(),
+            anchor_map_proposed,
+            _s_chat_previous,
+            _s_chat_proposed,
+            s_chat_proposed;
+        
+        // attempt to parse anchor; if invalid return to previous anchor
+        try {
+            anchor_map_proposed = $.uriAnchor.makeAnchorMap();
+        } catch (error) {
+            $.uriAnchor.setAnchor( anchor_map_previous, null, true );
+            return false;
+        }
+        stateMap.anchor_map = anchor_map_proposed;
+        
+        // assign convenience vars
+        _s_chat_previous = anchor_map_previous._s_chat;
+        _s_chat_proposed = anchor_map_proposed._s_chat;
+        
+        // adjust chat component if changed
+        if (!anchor_map_previous || _s_chat_previous !== _s_chat_proposed) {
+            s_chat_proposed = anchor_map_proposed.chat;
+            switch (s_chat_proposed) {
+                case 'open':
+                    toggleChat( true );
+                    break;
+                case 'closed':
+                    toggleChat( false );
+                    break;
+                default:
+                    toggleChat( false );
+                    delete anchor_map_proposed.chat;
+                    $.uriAnchor.setAnchor( anchor_map_proposed, null, true );
+            }
+        }
+    }
+    
+    
+    // click event handler to call changeAnchorPart.
+    // changes the 'chat' parameter of the URI anchor on click
     function onClickChat(event) {
         
-        // if toggleChat succeeds (returns true), update the URI anchor.
-        // note that calling it inside the condition executed it
-        if (toggleChat( stateMap.is_chat_retracted )) {
-            $.uriAnchor.setAnchor({
-                chat: ( stateMap.is_chat_retracted ? 'open' : 'closed' )
-            });
-        }
+        changeAnchorPart({
+            chat: ( stateMap.is_chat_retracted ? 'open' : 'closed' )
+        });
         
         // prevent default action, stop propagation, conclude handler execution
         return false;
@@ -156,6 +253,17 @@ spa.shell = (function ($) {
         jqueryMap.$chat
             .attr('title', configMap.chat_retracted_title)
             .click(onClickChat);
+        
+        // configure uriAnchor to use our schema
+        $.uriAnchor.configModule({
+            schema_map: configMap.anchor_schema_map
+        });
+        
+        // bind 'hashchange' event & immediately fire so the module considers
+        // the bookmark on page load
+        $(window)
+            .bind('hashchange', onHashChange)
+            .trigger('hashchange');
         
         // test toggle
         // setTimeout( function () {toggleChat( true ); }, 3000 );
