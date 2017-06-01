@@ -9,11 +9,11 @@ var spa = (function ($) {
     
     'use strict';
     
-    var initModule = function ($container) {
+    function initModule($container) {
         
         spa.shell.initModule( $container );
         
-    };
+    }
     
     return {
         initModule: initModule
