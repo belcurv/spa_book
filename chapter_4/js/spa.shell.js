@@ -35,12 +35,16 @@ spa.shell = (function ($) {
                 </div>
 
                 <div class="spa-shell-foot"></div>
-                <div class="spa-shell-modal"></div>`            
+                <div class="spa-shell-modal"></div>`,
+            
+            // interval in ms between resize event consideration
+            resize_interval: 200
         },
         
         // dynamic information shared across the module
         stateMap = {
-            anchor_map : {},    // store for current anchor values
+            anchor_map  : {},        // store for current anchor values
+            resize_idto : undefined  // store resize timeout ID
         },
         
         // jQuery collections cache container
@@ -183,6 +187,29 @@ spa.shell = (function ($) {
     }
     
     
+    /* onResize
+    */
+    function onResize() {
+        
+        // bail if resize timer is already currently running
+        if (stateMap.resize_idto) { return true; }
+        
+        spa.chat.handleResize();
+        
+        // timeout function clears its own timeout ID
+        stateMap.resize_idto = setTimeout(
+            function() {
+                stateMap.resize_idto = undefined;
+            },
+            configMap.resize_interval
+        )
+        
+        // return true from window.resize event so jQuery doesn't
+        // prefentDefault() or stopPropagation()
+        return true;
+    }
+    
+    
     /* ============================= CALLBACKS ============================= */
     
     /* setChatAnchor - provided to Chat as a safe way to request a URI change
@@ -244,6 +271,7 @@ spa.shell = (function ($) {
            considered on-load
         */
         $(window)
+            .bind('resize', onResize)
             .bind('hashchange', onHashChange)
             .trigger('hashchange');
                 

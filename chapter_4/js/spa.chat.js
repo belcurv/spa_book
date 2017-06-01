@@ -3,7 +3,7 @@
 */
 
 /* jshint esversion:6 */
-/* globals jQuery, spa, getComputedStyle */
+/* globals window, jQuery, spa, getComputedStyle */
 
 spa.chat = (function ($) {
     
@@ -49,8 +49,10 @@ spa.chat = (function ($) {
             // slider animation settings
             slider_open_time        : 250,
             slider_close_time       : 250,
-            slider_opened_em        : 16,
+            slider_opened_em        : 18,
             slider_closed_em        : 2,
+            slider_opened_min_em    : 10,
+            window_height_min_em    : 20,
             slider_opened_title     : 'Click to close',
             slider_closed_title     : 'Click to open',
             
@@ -110,8 +112,16 @@ spa.chat = (function ($) {
     /* calculate and set pixel sizes for elements managed by this module
     */
     function setPxSizes() {
-        var px_per_em        = getEmSize(jqueryMap.$slider.get(0)),
-            opened_height_em = configMap.slider_opened_em;
+        var opened_height_em,
+            px_per_em        = getEmSize(jqueryMap.$slider.get(0)),
+            window_height_em = Math.floor(
+                ( $(window).height() / px_per_em ) + 0.5
+            );
+        
+        // compare current window height to configMap threshold,
+        // set slider opened height
+        opened_height_em = window_height_em > configMap.window_height_min_em ?
+            configMap.slider_opened_em : configMap.slider_opened_min_em;
         
         stateMap.px_per_em = px_per_em;
         stateMap.slider_closed_px = configMap.slider_closed_em * px_per_em;
@@ -139,6 +149,61 @@ spa.chat = (function ($) {
     
     
     /* ========================== PUBLIC METHODS =========================== */
+    
+    /* removeSlider
+    
+       Purpose: removes chatSlider DOM element, reverts to initial state, and
+                removes pointers to callbacks and other data
+       Arguments : none
+       Returns   : true
+       Throws    : none
+    */
+    function removeSlider() {
+        // unwind initialization and state
+        // remove DOM container; this removes event bindins too
+        if (jqueryMap.$slider) {
+            jqueryMap.$slider.remove();
+            jqueryMap = {};
+        }
+        stateMap.$append_target = null;
+        stateMap.position_type = 'closed';
+        
+        // unwind key configurations
+        configMap.chat_model      = null;
+        configMap.people_model    = null;
+        configMap.set_chat_anchor = null;
+        
+        return true;
+    }
+    
+    
+    /* handleResize - called by spa.shell.js 'onResize' event handler
+    
+       Purpose : Given a window resize event, adjust the presentation provided
+                 by this module if needed
+       Actions : If window height or width falls below threshold, resize the
+                 chat slider for the reduced window size
+       Returns :
+         * true  - resize considered
+         * false - resize not considered
+       Throws  : none
+    */
+    function handleResize() {
+        
+        // do nothing if we don't have a slider container
+        if (!jqueryMap.$slider) { return false; }
+        
+        // recalculate pixel sizes each time handleResize is called
+        setPxSizes();
+        
+        // resize opened slider height 
+        if (stateMap.position_type === 'opened') {
+            jqueryMap.$slider.css({ height : stateMap.slider_opened_px });
+        }
+        
+        return true;
+        
+    }
     
     
     /* configModule - uses: 'spa.util.setConfigMap' utility method
@@ -277,7 +342,9 @@ spa.chat = (function ($) {
     return {
         setSliderPosition : setSliderPosition,
         configModule      : configModule,
-        initModule        : initModule
+        initModule        : initModule,
+        removeSlider      : removeSlider,
+        handleResize      : handleResize
     };
 
 }(jQuery));
