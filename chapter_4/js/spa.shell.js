@@ -259,16 +259,16 @@ spa.shell = (function ($) {
             schema_map: configMap.anchor_schema_map
         });
         
+        // configure and init feature modules
+        spa.chat.configModule({});
+        spa.chat.initModule( jqueryMap.$chat );
+        
         // bind 'hashchange' event & immediately fire so the module considers
         // the bookmark on page load
         $(window)
             .bind('hashchange', onHashChange)
             .trigger('hashchange');
-        
-        // test toggle
-        // setTimeout( function () {toggleChat( true ); }, 3000 );
-        // setTimeout( function () {toggleChat( false ); }, 8000 );
-        
+                
     }
     
     
