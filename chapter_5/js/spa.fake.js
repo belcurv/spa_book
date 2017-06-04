@@ -1,10 +1,10 @@
 /* spa.fake.js
  * Fake module - provides mock data to our model and allows development in
    the absence of a server or feature module UI. Fake will emulate a Data
-   module and server connection. We'll use the browser console to test it.
+   module and a Socket.io connection to our server. We'll use the browser console to test it.
 */
 
-/* jshint esversion:6 */
+/* jshint esversion:6, browser: true */
 /* globals jQuery, spa */
 
 spa.fake = (function ($) {
@@ -13,6 +13,20 @@ spa.fake = (function ($) {
     
     /* =============================== SETUP =============================== */
     
+    var getPeopleList,
+        fakeIdSerial,
+        makeFakeId,
+        mockSio;
+    
+    fakeIdSerial = 5;
+    
+    
+    /* ========================== UTILITY METHODS ========================== */
+    
+    // mock server ID serial number counter
+    makeFakeId = function () {
+        return 'id_' + String( fakeIdSerial += 1 );
+    };
     
     
     /* ========================== PUBLIC METHODS =========================== */
@@ -21,7 +35,7 @@ spa.fake = (function ($) {
      * @params    [none]
      * @returns   [array]    [array of fake person objects]
     */
-    function getPeopleList() {
+    getPeopleList = function () {
         return [
             {
                 name : 'Erin',
@@ -60,17 +74,52 @@ spa.fake = (function ($) {
                 }
             }
         ];
-    }
+    };
     
     
-    /* ========================== UTILITY METHODS ========================== */
-    
-    
+    // mock Socket IO connection closure / object
+    mockSio = (function () {
+        
+        var callback_map = {};
+        
+        // method to register a callback for a message type
+        function on_sio(msg_type, callback) {
+            callback_map[msg_type] = callback;
+        }
+        
+        // method emulates sending a message to the server. When received, wait
+        // 3 sec to simulate net latency before invoking updateuser callback.
+        function emit_sio(msg_type, data) {
+            
+            // respond to 'adduser' event with 'userupdate' callback after a
+            // 3 sec delay
+            if (msg_type === 'adduser' && callback_map.userupdate) {
+                setTimeout(function () {
+                    callback_map.userupdate(
+                        [{
+                            _id     : makeFakeId(),
+                            name    : data.name,
+                            css_map : data.css_map
+                        }]
+                    );
+                }, 3000);
+            }
+        }
+        
+        // export on_sio as 'on' and emit_sio as 'emit' to emulate real
+        // SocketIO object
+        return {
+            emit : emit_sio,
+            on   : on_sio
+        };
+        
+    }());
     
     /* ====================== EXPORT PUBLIC METHODS ======================== */
     
     return {
-        getPeopleList : getPeopleList
+        getPeopleList : getPeopleList,
+        mockSio       : mockSio
     };
     
 }(jQuery));

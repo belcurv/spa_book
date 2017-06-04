@@ -160,23 +160,84 @@ spa.model = (function ($) {
         // remove person frm database
         stateMap.people_db({ cid: person.cid }).remove();
         
+        // remove them from stateMap's CID list
+        if (person.cid) {
+            delete stateMap.people_cid_map[ person.cid ];
+        }
+        
+        return true;        
         
     };
     
     
     
-    // define the people object
-    people = {
+    // define the people closure - allows us to share only the methods we want
+    people = (function () {
         
-        // returns the collection of person objects
-        get_db : () => stateMap.people_db,
+        function get_by_cid(cid) {
+            return stateMap.people_cid_map[cid];
+        }
         
-        // returns map of person objects keyed by client ID
-        get_cid_map : () => stateMap.people_cid_map
+        // return the TaffyDb collection of person objects
+        function get_db() {
+            return stateMap.people_db;
+        }
         
-    };
-    
-    
+        // returns current user person object
+        function get_user() {
+            return stateMap.user;
+        }
+        
+        // nothing fancy 
+        function login(name) {
+            
+            // socket.io connection
+            var sio = isFakeData ? spa.fake.mockSio : spa.data.getSio();
+            
+            stateMap.user = makePerson({
+                cid     : makeCid(),
+                css_map : {top : 25, left : 25, 'background-color' : '#8f8'},
+                name    : name
+            });
+            
+            // register a callback to complete sign-in when backend publishes a
+            // 'userupdate' message
+            sio.on('userupdate', completeLogin);
+            
+            // send a 'adduser' message to backend along with user details.
+            // Adding a user and signing in are the same thing in this context.
+            sio.emit( 'adduser', {
+                cid     : stateMap.user.cid,
+                css_map : stateMap.user.css_map,
+                name    : stateMap.user.name
+            });
+        }
+        
+        
+        // publishes a 'spa-logout' event
+        function logout() {
+            var is_removed,
+                user = stateMap.user;
+            
+            // when we add chat, we should leave the chatroom here
+            
+            is_removed    = removePerson(user);
+            stateMap.user = stateMap.anon_user;
+            
+            $.gevent.publish('spa-logout', [user]);
+            
+            return is_removed;
+        }
+        
+        return {
+            get_by_cid : get_by_cid,
+            get_db     : get_db,
+            get_user   : get_user,
+            login      : login,
+            logout     : logout
+        };
+        
+    }());
     
     
     /* ========================== PUBLIC METHODS =========================== */
