@@ -24,9 +24,11 @@ spa.shell = (function ($) {
             // html template
             main_html: `
                 <div class="spa-shell-head">
-                    <div class="spa-shell-head-logo"></div>
+                    <div class="spa-shell-head-logo">
+                        <h1>SPA</h1>
+                        <p>JavaScript end to end</p>
+                    </div>
                     <div class="spa-shell-head-acct"></div>
-                    <div class="spa-shell-head-search"></div>
                 </div>
 
                 <div class="spa-shell-main">
@@ -66,7 +68,9 @@ spa.shell = (function ($) {
     function setJqueryMap() {
         var $container = stateMap.$container;
         jqueryMap = {
-            $container : $container
+            $container : $container,
+            $acct      : $container.find('.spa-shell-head-acct'),
+            $nav       : $container.find('.spa-shell-main-nav')
         };
     }
     
@@ -210,6 +214,47 @@ spa.shell = (function ($) {
     }
     
     
+    /* onTapAcct event handler
+       Purpose: when account element is tapped, if the user is anon (not logged
+       in), prompt for a user name and then invoke:
+          spa.model.people.login( user_name )
+       If the user is already signed in, log them out:
+          spa.model.people.logout()
+    */
+    function onTapAcct(event) {
+        var acct_text,
+            user_name,
+            user = spa.model.people.get_user();
+        
+        if (user.get_is_anon()) {
+            user_name = window.prompt( 'Please sign in' );
+            spa.model.people.login(user_name);
+            jqueryMap.$acct.text('... processing ...');
+        } else {
+            spa.model.people.logout();
+        }
+        
+        return false;
+    }
+    
+    
+    /* onLogin event handler
+       Purpose: update the upper-right user area, replacing "Please Sign-In"
+       text with the user name. This is provided by the login_user object
+       distributed by the 'spa-login' event.
+    */
+    function onLogin(event, login_user) {
+        jqueryMap.$acct.text(login_user.name);
+    }
+    
+    /* onLogout event handler
+       Purpose: reverts user area text back to "Please Sign-In"
+    */
+    function onLogout(event, logout_user) {
+        jqueryMap.$acct.text('Please sign-in');
+    }
+    
+    
     /* ============================= CALLBACKS ============================= */
     
     /* setChatAnchor - provided to Chat as a safe way to request a URI change
@@ -274,7 +319,17 @@ spa.shell = (function ($) {
             .bind('resize', onResize)
             .bind('hashchange', onHashChange)
             .trigger('hashchange');
-                
+        
+        // $container jQuery collection subscribes to 'spa-login' and
+        // 'spa-logout' events
+        $.gevent.subscribe( $container, 'spa-login', onLogin );
+        $.gevent.subscribe( $container, 'spa-logout', onLogout );
+        
+        // init user area text & bind touch or mouse click to our event handler
+        jqueryMap.$acct
+            .text('Please sign-in')
+            .bind( 'utap', onTapAcct );
+        
     }
     
     
