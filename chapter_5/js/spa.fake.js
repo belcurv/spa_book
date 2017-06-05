@@ -13,12 +13,45 @@ spa.fake = (function ($) {
     
     /* =============================== SETUP =============================== */
     
-    var getPeopleList,
+    var peopleList,
+        getPeopleList,
         fakeIdSerial,
         makeFakeId,
         mockSio;
     
     fakeIdSerial = 5;
+    
+    // mock people list
+    peopleList = [
+        {
+            name : 'Erin', _id  : 'id_01',
+            css_map : {
+                top: 20, left: 20,
+                'background-color' : 'rgb(128,128,128)'
+            }
+        },
+        {
+            name : 'Jay', _id  : 'id_02',
+            css_map : {
+                top: 60, left: 20,
+                'background-color' : 'rgb(128,255,128)'
+            }
+        },
+        {
+            name : 'Sophia', _id  : 'id_03',
+            css_map : {
+                top: 100, left: 20,
+                'background-color' : 'rgb(128,192,192)'
+            }
+        },
+        {
+            name : 'Zenya', _id  : 'id_04',
+            css_map : {
+                top: 140, left: 20,
+                'background-color' : 'rgb(192,128,128)'
+            }
+        }
+    ];
     
     
     /* ========================== UTILITY METHODS ========================== */
@@ -31,80 +64,64 @@ spa.fake = (function ($) {
     
     /* ========================== PUBLIC METHODS =========================== */
     
-    /* return data for a list of fake persons
-     * @params    [none]
-     * @returns   [array]    [array of fake person objects]
-    */
-    getPeopleList = function () {
-        return [
-            {
-                name : 'Erin',
-                _id  : 'id_01',
-                css_map : {
-                    top: 20,
-                    left: 20,
-                    'background-color' : 'rgb(128,128,128)'
-                }
-            },
-            {
-                name : 'Jay',
-                _id  : 'id_02',
-                css_map : {
-                    top: 60,
-                    left: 20,
-                    'background-color' : 'rgb(128,255,128)'
-                }
-            },
-            {
-                name : 'Sophia',
-                _id  : 'id_03',
-                css_map : {
-                    top: 100,
-                    left: 20,
-                    'background-color' : 'rgb(128,192,192)'
-                }
-            },
-            {
-                name : 'Zenya',
-                _id  : 'id_04',
-                css_map : {
-                    top: 140,
-                    left: 20,
-                    'background-color' : 'rgb(192,128,128)'
-                }
-            }
-        ];
-    };
-    
     
     // mock Socket IO connection closure / object
     mockSio = (function () {
         
-        var callback_map = {};
+        var listchange_idto,
+            callback_map = {};
         
-        // method to register a callback for a message type
+        // register a callback for a message type
         function on_sio(msg_type, callback) {
             callback_map[msg_type] = callback;
         }
         
-        // method emulates sending a message to the server. When received, wait
+        // emulates sending a message to the server. When received, wait
         // 3 sec to simulate net latency before invoking updateuser callback.
         function emit_sio(msg_type, data) {
+            
+            var person_map;
             
             // respond to 'adduser' event with 'userupdate' callback after a
             // 3 sec delay
             if (msg_type === 'adduser' && callback_map.userupdate) {
                 setTimeout(function () {
-                    callback_map.userupdate(
-                        [{
-                            _id     : makeFakeId(),
-                            name    : data.name,
-                            css_map : data.css_map
-                        }]
-                    );
+                    
+                    person_map = {
+                        _id     : makeFakeId(),
+                        name    : data.name,
+                        css_map : data.css_map
+                    };
+                    
+                    // push user definition into mock people list
+                    peopleList.push(person_map);
+                    
+                    callback_map.userupdate([person_map]);
                 }, 3000);
             }
         }
+        
+        
+        /* Emulate the receipt of a 'listchange' message from the backend.
+           Once per second, look for the 'listchange' callback (which the 
+           'chat' object registers only after a user has signed in and joined
+           the chat room).
+           If the callback is found, it is executed using the mock
+           'peopleList' as its argument, and 'send_listchange' stops polling.
+        */
+        function send_listchange() {
+            listchange_idto = setTimeout( function () {
+                if (callback_map.listchange) {
+                    callback_map.listchange([peopleList]);
+                    listchange_idto = undefined;
+                } else {
+                    send_listchange();
+                }
+            }, 1000);
+        }
+        
+        // Manually start the process
+        send_listchange();
         
         // export on_sio as 'on' and emit_sio as 'emit' to emulate real
         // SocketIO object
@@ -118,8 +135,7 @@ spa.fake = (function ($) {
     /* ====================== EXPORT PUBLIC METHODS ======================== */
     
     return {
-        getPeopleList : getPeopleList,
-        mockSio       : mockSio
+        mockSio : mockSio
     };
     
 }(jQuery));
