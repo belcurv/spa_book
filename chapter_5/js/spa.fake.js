@@ -14,7 +14,6 @@ spa.fake = (function ($) {
     /* =============================== SETUP =============================== */
     
     var peopleList,
-        getPeopleList,
         fakeIdSerial,
         makeFakeId,
         mockSio;
@@ -80,7 +79,8 @@ spa.fake = (function ($) {
         // 3 sec to simulate net latency before invoking updateuser callback.
         function emit_sio(msg_type, data) {
             
-            var person_map;
+            var person_map,
+                i;
             
             // respond to 'adduser' event with 'userupdate' callback after a
             // 3 sec delay
@@ -99,6 +99,59 @@ spa.fake = (function ($) {
                     callback_map.userupdate([person_map]);
                 }, 3000);
             }
+            
+            // respond to 'updatechat' event with an 'updatechat' callback
+            // after 2 sec delay. Echo back user info.
+            if (msg_type === 'updatechat' && callback_map.updatechat) {
+                setTimeout(function () {
+                    var user = spa.model.people.get_user();
+                    callback_map.updatechat([{
+                        dest_id   : user.id,
+                        dest_name : user.name,
+                        sender_id : data.dest_id,
+                        msg_text  : 'Thanks for the note, ' + user.name                        
+                    }]);
+                }, 2000);
+            }
+            
+            // clear the callbacks used by chat if 'leavechat' message is
+            // received. This means the user has signed out.
+            if (msg_type === 'leavechat') {
+                // reset login status
+                delete callback_map.listchange;
+                delete callback_map.updatechat;
+                
+                if (listchange_idto) {
+                    clearTimeout(listchange_idto);
+                    listchange_idto = undefined;
+                }
+                
+                send_listchange();
+            }
+        }
+        
+        
+        /* Tries to send a mock message to the signed-in user once every 8
+           seconds. This will succeed only after a user is signed in when the
+           'updatechat' callback is set. On success, does not call itself
+           again and therefore no further attempts to send a mock message will
+           be made
+        */
+        function emit_mock_msg() {
+            setTimeout(function () {
+                var user = spa.model.people.get_user();
+                if (callback_map.updatechat) {
+                    callback_map.updatechat([{
+                        dest_id : user.id,
+                        dest_name : user.name,
+                        sender_id : 'id_04',
+                        msg_text : `Hi there ${user.name}! I'm not Wilma.`
+                    }]);
+                } else {
+                    emit_mock_msg();
+                }
+                
+            }, 8000);
         }
         
         
@@ -113,6 +166,10 @@ spa.fake = (function ($) {
             listchange_idto = setTimeout( function () {
                 if (callback_map.listchange) {
                     callback_map.listchange([peopleList]);
+                    
+                    // start trying to send a mock message after user signs in
+                    emit_mock_msg();
+                    
                     listchange_idto = undefined;
                 } else {
                     send_listchange();
