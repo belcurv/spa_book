@@ -220,18 +220,18 @@ spa.model = (function ($) {
         
         // publishes a 'spa-logout' event
         function logout() {
-            var is_removed,
-                user = stateMap.user;
+            var user = stateMap.user;
             
             // automatically exit the chat room once sign-out is complete
             chat._leave();
             
-            is_removed    = removePerson(user);
             stateMap.user = stateMap.anon_user;
+            
+            // clear the 'people' Taffy collection on logout
+            clearPeopleDb();
             
             $.gevent.publish('spa-logout', [user]);
             
-            return is_removed;
         }
         
         return {
@@ -300,6 +300,7 @@ spa.model = (function ($) {
         // refresh the people object when a new people list is receives
         function _update_list(arg_list) {
             var i,
+                person,
                 person_map,
                 make_person_map,
                 people_list = arg_list[0],
@@ -326,13 +327,17 @@ spa.model = (function ($) {
                     name    : person_map.name
                 };
                 
-                // set is_chatee_online to true if chatee is found in the updated
-                // user list
+                // assign the results of makePerson to the person object
+                person = makePerson( make_person_map );
+                
+                // if chatee is found in the updated user list,
+                // 1. set is_chatee_online to true 
+                // 2. update chatee to the new person object
                 if (chatee && chatee.id === make_person_map.id) {
                     is_chatee_online = true;
+                    chatee = person;
                 }
                 
-                makePerson( make_person_map );
             }
             
             stateMap.people_db.sort('name');
@@ -450,13 +455,30 @@ spa.model = (function ($) {
         }
         
         
+        // method to send an 'updateavatar' message to the backedn with a map as
+        // data. 'avatar_update_map' should have the form:
+        // { person_id : <string>,
+        //   css_map   : { top  : <int>,
+        //                 left : <int>,
+        //                 'background-color' : <string>
+        //               }
+        // }
+        function update_avatar(avatar_update_map) {
+            var sio = isFakeData ? spa.fake.mockSio : spa.data.getSio();
+            if (sio) {
+                sio.emit('updateavatar', avatar_update_map);
+            }
+        }
+        
+        
         // export public chat methods
         return {
-            _leave     : _leave_chat,
-            get_chatee : get_chatee,
-            join       : join_chat,
-            send_msg   : send_msg,
-            set_chatee : set_chatee
+            _leave        : _leave_chat,
+            get_chatee    : get_chatee,
+            join          : join_chat,
+            send_msg      : send_msg,
+            set_chatee    : set_chatee,
+            update_avatar : update_avatar
         };
         
     }());

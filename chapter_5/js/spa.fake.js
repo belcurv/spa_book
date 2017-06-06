@@ -79,8 +79,7 @@ spa.fake = (function ($) {
         // 3 sec to simulate net latency before invoking updateuser callback.
         function emit_sio(msg_type, data) {
             
-            var person_map,
-                i;
+            var person_map;
             
             // respond to 'adduser' event with 'userupdate' callback after a
             // 3 sec delay
@@ -127,6 +126,23 @@ spa.fake = (function ($) {
                 }
                 
                 send_listchange();
+            }
+            
+            // simulate send of 'updateavatar' message and data to server
+            if (msg_type === 'updateavatar' && callback_map.listchange) {
+                // simulate receipt of 'listchange' message
+                for (let i = 0; i < peopleList.length; i += 1) {
+                    
+                    // find the person object specified by the data from
+                    // updateavatar message and change its css_map property
+                    if (peopleList[i]._id === data.person_id) {
+                        peopleList[i].css_map = data.css_map;
+                        break;
+                    }
+                }
+                
+                // execute the callback registered for the listchange message
+                callback_map.listchange([ peopleList ]);
             }
         }
         
