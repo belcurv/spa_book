@@ -24,7 +24,7 @@ spa.model = (function ($) {
             is_connected   : false    // is user connected to chat room
         },
         
-        isFakeData = true,  // use our Fake module instead of real server/db
+        isFakeData = false,  // use our Fake module instead of real server/db
         
         personProto, makeCid, clearPeopleDb, completeLogin, makePerson,
         removePerson, people, chat, initModule;

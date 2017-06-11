@@ -11,6 +11,7 @@ var spa = (function ($) {
     
     function initModule($container) {
         
+        spa.data.initModule();  // must init before model and shell
         spa.model.initModule();
         spa.shell.initModule( $container );
         
