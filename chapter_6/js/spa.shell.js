@@ -310,6 +310,12 @@ spa.shell = (function ($) {
         });
         spa.chat.initModule( jqueryMap.$container );
         
+        spa.avtr.configModule({
+            chat_model   : spa.model.chat,
+            people_model : spa.model.people
+        });
+        spa.avtr.initModule( jqueryMap.$nav );
+        
         /* bind & trigger 'hashchange' event AFTER all feature modules are
            configured and initialized. Otherwise they will not be ready to
            handle the trigger event, which is used to ensure the anchor is
