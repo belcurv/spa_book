@@ -1,3 +1,3 @@
 /*  jshint esversion:6  */
 
-var b = 'SPA';
+var b = 'SPA5!';

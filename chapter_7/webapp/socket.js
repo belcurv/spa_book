@@ -54,6 +54,8 @@ function countUp() {
 
 // middleware to set a watch for any statically served files
 app.use( (req, res, next) => {
+    
+    console.log('was setWatch set?');
 
     // if the requested file is in the js folder, consider it a script
     if (req.url.indexOf('/js/') >= 0) {
@@ -67,13 +69,13 @@ app.use( (req, res, next) => {
 });
 
 // set static files location
-app.use(express.static(__dirname + '/'));
+app.use(express.static('public'));
 
 // the one true route!
 app.get('/', (req, res) => {
     res
         .status(200)
-        .sendFile(path.join(__dirname, './socket.html'));
+        .sendFile(path.join(__dirname, './public/socket.html'));
 });
 
 
